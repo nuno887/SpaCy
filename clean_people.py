@@ -3,6 +3,8 @@ import os
 
 from rich.console import Console
 
+from PDF_to_TXT import extract_text_from_pdf
+
 # === Config ===
 NLP_MODEL = "pt_core_news_lg"
 #INPUT_DIR = "raw_TXT"
@@ -78,6 +80,19 @@ def remove_entities_with_unwanted_words(entities, unwanted_words):
 
 
 def extract_clean_person_entities(input_dir: str) -> dict:
+    """
+    Extracts and filters named person entities from text files in the input directory.
+    
+    This function uses a spaCy language model to identify named entities labeled as persons (PER)
+    from each `.txt` file in the specified input directory. It applies several filtering steps.
+
+    Parameters:
+        input_dir (str): Directory containing plain `.txt` files with text to analyze.
+
+    Returns:
+        dict: A dictionary where keys are filenames and values are lists of cleaned person names.
+
+    """
     results = {}
     INPUT_DIR = input_dir
 
@@ -101,6 +116,11 @@ def extract_clean_person_entities(input_dir: str) -> dict:
 
     return results
 
+#print (extract_clean_person_entities("raw_TXT"))
+
+#'''
+
+extract_text_from_pdf("input_PDF", "raw_TXT")
 console = Console()
 results = extract_clean_person_entities("raw_TXT")
 
@@ -108,3 +128,5 @@ for filename, people in results.items():
     console.print(f"[bold blue]{filename}[/bold blue]")
     for person in people:
         console.print(f"  - [green]{person}[/green]")
+
+#'''
