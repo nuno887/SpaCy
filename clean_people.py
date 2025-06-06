@@ -5,9 +5,7 @@ from rich.console import Console
 
 # === Config ===
 NLP_MODEL = "pt_core_news_lg"
-INPUT_DIR = "raw_TXT"
-OUTPUT_DIR = "ner_HTML"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "all_results.html")
+#INPUT_DIR = "raw_TXT"
 
 TRIM_KEYWORDS = ["anexo", "nota curricular", "secretaria"]
 
@@ -23,8 +21,6 @@ UNWANTED_WORDS = [
 ]
 
 
-# Ensure output directory exists
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Load spaCy Portuguese model
 nlp = spacy.load(NLP_MODEL)
@@ -81,8 +77,9 @@ def remove_entities_with_unwanted_words(entities, unwanted_words):
     return filtered
 
 
-def extract_clean_person_entities(input_dir=INPUT_DIR):
+def extract_clean_person_entities(input_dir: str) -> dict:
     results = {}
+    INPUT_DIR = input_dir
 
     # Process each .txt file
     for filename in os.listdir(INPUT_DIR):
@@ -105,7 +102,7 @@ def extract_clean_person_entities(input_dir=INPUT_DIR):
     return results
 
 console = Console()
-results = extract_clean_person_entities(INPUT_DIR)
+results = extract_clean_person_entities("raw_TXT")
 
 for filename, people in results.items():
     console.print(f"[bold blue]{filename}[/bold blue]")
