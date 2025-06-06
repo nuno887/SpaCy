@@ -4,7 +4,7 @@ import pdfplumber
 def extract_text_from_pdf(input_dir: str, output_dir: str) -> None:
     """
     Extracts raw text from all PDF files in the input_dir and saves them
-    as .txt files in the output_dir.
+    as .txt files in the output_dir — skipping files that already exist.
     
     Parameters:
         input_dir (str): Directory containing PDF files.
@@ -19,16 +19,22 @@ def extract_text_from_pdf(input_dir: str, output_dir: str) -> None:
         return
 
     for filename in files:
-        filepath = os.path.join(input_dir, filename)
-        if filename.lower().endswith(".pdf"):
-            print(f"📄 Processing: {filename}")
-            with pdfplumber.open(filepath) as pdf:
-                raw_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
-
-            output_path = os.path.join(output_dir, f"{os.path.splitext(filename)[0]}.txt")
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(raw_text)
-
-            print(f"✅ Saved to: {output_path}")
-        else:
+        if not filename.lower().endswith(".pdf"):
             print(f"⏭️ Skipping non-PDF file: {filename}")
+            continue
+
+        base_name = os.path.splitext(filename)[0]
+        output_path = os.path.join(output_dir, f"{base_name}.txt")
+
+        if os.path.exists(output_path):
+            print(f"✅ Skipping existing file: {output_path}")
+            continue
+
+        print(f"📄 Processing: {filename}")
+        with pdfplumber.open(os.path.join(input_dir, filename)) as pdf:
+            raw_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(raw_text)
+
+        print(f"✅ Saved to: {output_path}")
