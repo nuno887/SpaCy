@@ -122,48 +122,71 @@ def extract_all_sections_from_label_to_same(doc, label: str) -> list[str]:
 
     return sections
 
-def group_sections_by_secretaria_with_despachos(doc: spacy.tokens.Doc, extracted_doc: spacy.tokens.Doc) -> dict:
+def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
     """
-    Groups DES sections under each SECRETARIA label as nested dictionaries.
+    Groups DES-labeled sections under their corresponding SECRETARIA-labeled sections
+    within a pre-extracted portion of the document.
 
     Parameters:
-        doc (spacy.tokens.Doc): The full SpaCy document.
-        extracted_doc (spacy.tokens.Doc): The portion of the doc between SUM and HEADER_DATE.
+        extracted_doc (spacy.tokens.Doc): The doc span containing SECRETARIA and DES entities.
 
     Returns:
-        dict: {
-            "SECRETARIA NAME": {
-                "DESPACHO LABEL": "Content of the section following it",
-                ...
-            },
-            ...
-        }
+        dict: A nested dictionary where each key is a SECRETARIA entity text, and each value is
+              a dictionary mapping DES titles to metadata fields.
     """
-    secretaria_dict = {}
-    secretarias = [ent for ent in extracted_doc.ents if ent.label_ == "SECRETARIA"]
+    result = {}
+    current_secretaria = None
+    current_sections = []
+
     des_ents = [ent for ent in extracted_doc.ents if ent.label_ == "DES"]
+    secretaria_ents = [ent for ent in extracted_doc.ents if ent.label_ == "SECRETARIA"]
 
-    for i, secretaria in enumerate(secretarias):
-        start = secretaria.start
-        end = secretarias[i + 1].start if i + 1 < len(secretarias) else len(extracted_doc)
+    # Combine and sort by start index
+    all_ents = sorted(secretaria_ents + des_ents, key=lambda x: x.start)
 
-        section_span = extracted_doc[start:end]
-        section_despachos = [ent for ent in des_ents if start <= ent.start < end]
+    for i, ent in enumerate(all_ents):
+        if ent.label_ == "SECRETARIA":
+            # Store previous secretaria block
+            if current_secretaria and current_sections:
+                result[current_secretaria] = {
+                    sec["title"]: {
+                        "chunk": sec["text"],
+                        "data": "",
+                        "autor": "",
+                        "pessoas": "",
+                        "despachos": ""
+                    }
+                    for sec in current_sections
+                }
+            current_secretaria = ent.text
+            current_sections = []
 
-        des_dict = {}
-        for j, des_ent in enumerate(section_despachos):
-            des_start = des_ent.start
-            des_end = (
-                section_despachos[j + 1].start if j + 1 < len(section_despachos) else end
-            )
-            des_span = extracted_doc[des_start:des_end]
-            des_title = des_ent.text.strip()
-            des_content = extracted_doc[des_ent.end:des_end].text.strip()
-            des_dict[des_title] = des_content
+        elif ent.label_ == "DES" and current_secretaria:
+            start = ent.start
+            end = all_ents[i + 1].start if i + 1 < len(all_ents) else len(extracted_doc)
+            span = extracted_doc[start:end]
+            current_sections.append({
+                "title": ent.text,
+                "text": span.text.replace(current_secretaria, "").strip()
+            })
 
-        secretaria_dict[secretaria.text.strip()] = des_dict
+    # Add last collected secretaria block
+    if current_secretaria and current_sections:
+        result[current_secretaria] = {
+            sec["title"]: {
+                "chunk": sec["text"],
+                "data": "",
+                "autor": "",
+                "pessoas": "",
+                "despachos": ""
+            }
+            for sec in current_sections
+        }
 
-    return secretaria_dict
+    return result
+
+
+
 
 
 def save_secretaria_dict_to_json(secretaria_dict, txt_filename, output_dir):
@@ -254,7 +277,7 @@ else:
 extracted = extract_text_between_labels(doc, "SUM", "HEADER_DATE")
 extracted_doc = nlp(extracted)
 
-secretaria_dict = group_sections_by_secretaria_with_despachos(doc, extracted_doc)
+secretaria_dict = group_sections_by_secretaria_with_metadata(extracted_doc)
 
 save_secretaria_dict_to_json(secretaria_dict, filename, output_dir="json_exports")
 
