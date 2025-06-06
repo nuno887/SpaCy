@@ -154,7 +154,8 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
                         "data": "",
                         "autor": "",
                         "pessoas": "",
-                        "despachos": ""
+                        "despachos": "",
+                        "serie":"",
                     }
                     for sec in current_sections
                 }
@@ -178,7 +179,8 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
                 "data": "",
                 "autor": "",
                 "pessoas": "",
-                "despachos": ""
+                "despachos": "",
+                "serie":"",
             }
             for sec in current_sections
         }
