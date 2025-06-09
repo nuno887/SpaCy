@@ -22,6 +22,53 @@ PRIMARY_PATTERNS = [
             {"LIKE_NUM": True}
         ]
     },
+     {
+        "label": "HEADER_DATE_CORRESPONDENCIA",
+        "pattern": [
+            {"LIKE_NUM": True},
+            {"IS_PUNCT": True, "TEXT": "-"},
+            {"IS_ALPHA": True, "LENGTH": 1},
+            {"IS_SPACE": True, "OP": "?"},
+            {"LIKE_NUM": True},
+            {"LOWER": "de"},
+            {"LOWER": {"IN": [
+                "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+                "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+            ]}},
+            {"LOWER": "de"},
+            {"LIKE_NUM": True},
+            {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
+            {"LOWER": "número"},
+            {"LIKE_NUM": True},
+            {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
+            {"TEXT": {"REGEX": "^CORRESPONDÊNCIA$"}}
+        ]
+    },
+    {
+        "label": "HEADER_DATE_CORRESPONDENCIA",
+        "pattern": [
+            {"LIKE_NUM": True},
+            {"LOWER": "de"},
+            {"LOWER": {"IN": [
+                "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+                "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+            ]}},
+            {"LOWER": "de"},
+            {"LIKE_NUM": True},
+            {"IS_ALPHA": True, "LENGTH": 1},
+            {"IS_PUNCT": True, "TEXT": "-"},
+            {"LIKE_NUM": True},
+            {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
+            {"LOWER": "número"},
+            {"LIKE_NUM": True},
+            {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
+            {"TEXT": {"REGEX": "^CORRESPONDÊNCIA$"}}
+
+        ]
+    },
+
+
+
     {
         "label": "HEADER_DATE",
         "pattern": [
@@ -39,7 +86,7 @@ PRIMARY_PATTERNS = [
             {"LIKE_NUM": True},
             {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
             {"LOWER": "número"},
-            {"LIKE_NUM": True}
+            {"LIKE_NUM": True},
         ]
     },
     {
@@ -63,33 +110,14 @@ PRIMARY_PATTERNS = [
         ]
     },
     {
-  "label": "CORRESPONDENCIA_BLOCO",
+  "label": "SECRETARIA",
   "pattern": [
-    {"LOWER": "correspondência"},
-    {"IS_SPACE": True, "OP": "*"},
-    {"IS_ALPHA": True, "OP": "*"},
-    {"IS_PUNCT": True, "OP": "*"},
-    {"IS_ASCII": True, "OP": "*"},
-    {"LOWER": "publicações"}
+    {"IS_UPPER": True},
+    {"IS_SPACE": True, "OP": "?"},
+    {"IS_UPPER": True, "OP": "+"}
   ]
 }
 ,
-{
-  "label": "PUBLICACOES_BLOCO",
-  "pattern": [
-    {"LOWER": "publicações"},
-    {"IS_SPACE": True, "OP": "*"},
-    {"IS_ALPHA": True, "OP": "*"},
-    {"IS_PUNCT": True, "OP": "*"},
-    {"IS_ASCII": True, "OP": "*"}
-  ]
-},
-    {
-        "label": "SECRETARIA",
-        "pattern": [
-            {"IS_UPPER": True, "OP": "+"}
-        ]
-    },
     
 
 ]
@@ -240,6 +268,97 @@ for filename in os.listdir(INPUT_DIR):
 
     save_secretaria_dict_to_json(secretaria_dict, filename, output_dir=OUTPUT_DIR)
 
+#-----------------------------------------------------------------------------
+
+def truncate_after_ent(doc, label):
+    """
+    Truncate the text starting from the first token of the last entity with the given label.
+    The entity itself will also be removed.
+    """
+    ents = [ent for ent in doc.ents if ent.label_ == label]
+    if not ents:
+        return doc.text
+    last_ent = ents[-1]
+    return doc[:last_ent.start].text
+
+def remove_ent(doc, label):
+    """
+    Remove all entities with the given label from the document text.
+    Returns a cleaned version of the text with the entities removed.
+    """
+    tokens = []
+    skip_range = set()
+
+    for ent in doc.ents:
+        if ent.label_ == label:
+            skip_range.update(range(ent.start, ent.end))
+
+    for i, token in enumerate(doc):
+        if i not in skip_range:
+            tokens.append(token.text_with_ws)
+
+    return ''.join(tokens)
+
+def truncate_before_ent_keep_ent(doc, label):
+    """
+    Truncates everything before the first occurrence of the entity with the given label,
+    but keeps the entity itself in the result.
+    """
+    for ent in doc.ents:
+        if ent.label_ == label:
+            return doc[ent.start:].text.strip()
+    return doc.text
+
+
+
+
+def process_txt_files(input_dir, output_dir, truncate_label=None, remove_label=None, truncate_label_before=None,):
+    """
+    Process .txt files: truncate after a given entity label and remove all occurrences of another.
+    Saves cleaned files to output_dir.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".txt"):
+            input_path = os.path.join(input_dir, filename)
+
+            with open(input_path, "r", encoding="utf-8") as f:
+                text = f.read()
+
+            doc = nlp(text)
+
+            # Truncate after entity
+            if truncate_label:
+                text = truncate_after_ent(doc, truncate_label)
+                doc = nlp(text)  # re-run NLP after truncation
+
+            # Remove entities
+            if remove_label:
+                text = remove_ent(doc, remove_label)
+            
+            # Replace this in your process_txt_files function
+            if truncate_label_before:
+                text = truncate_before_ent_keep_ent(doc, truncate_label_before)
+                doc = nlp(text)
+
+
+            output_path = os.path.join(output_dir, filename)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(text)
+
+# Example usage
+input_directory = "raw_TXT"
+output_directory = "raw_TXT_deleted"
+label_to_truncate = "HEADER_DATE_CORRESPONDENCIA"
+
+process_txt_files("raw_TXT", "raw_TXT_deleted", truncate_label="HEADER_DATE_CORRESPONDENCIA", remove_label="HEADER_DATE", truncate_label_before="SEC_DES_SUM")
+
+
+
+
+#------------------------------------------------------------------------------
+"""
 #----------------------------------------------------------------------------------------
 
 # Your label colors
@@ -253,17 +372,16 @@ ENTITY_COLORS = {
     "SEC_DES_SUM": "#e6f2ff",
     "PRECO_NUMERO": "#dbeafe",       # Soft sky blue
     "CORRESPONDENCIA_BLOCO": "#d6eaf8",  # Soft blue
-    "PRECO_NUMERO": "#fdebd0"            # Soft peach
+    "PRECO_NUMERO": "#fdebd0",            # Soft peach
+    "HEADER_DATE_CORRESPONDENCIA": "#AED9E0"
+    }
 
-
-
-}
 
 # === Function ===
 def generate_ner_html(txt_path: str, html_output_path: str, model_name: str = "pt_core_news_lg"):
-    """
-    Generates an HTML visualization showing ONLY custom entities.
-    """
+
+    #Generates an HTML visualization showing ONLY custom entities.
+
     if not os.path.exists(txt_path):
         raise FileNotFoundError(f"File not found: {txt_path}")
 
@@ -300,3 +418,5 @@ def generate_ner_html(txt_path: str, html_output_path: str, model_name: str = "p
 #----------------------------------------------------------------------------------
 
 generate_ner_html("raw_TXT/IISerie-100-2025-06-04Supl.txt", "output/IISerie-100-2025-06-04Supl_NER.html")
+
+"""
