@@ -283,21 +283,22 @@ def truncate_after_ent(doc, label):
 
 def remove_ent(doc, label):
     """
-    Remove all entities with the given label from the document text.
-    Returns a cleaned version of the text with the entities removed.
+    Remove all entities with the given label from the document.
+    Returns the cleaned text with those entities removed.
     """
-    tokens = []
-    skip_range = set()
+    spans_to_remove = [ent for ent in doc.ents if ent.label_ == label]
 
-    for ent in doc.ents:
-        if ent.label_ == label:
-            skip_range.update(range(ent.start, ent.end))
+    # Sort by start_char in reverse to avoid shifting offsets during deletion
+    spans_to_remove = sorted(spans_to_remove, key=lambda x: x.start_char, reverse=True)
 
-    for i, token in enumerate(doc):
-        if i not in skip_range:
-            tokens.append(token.text_with_ws)
+    text = doc.text
+    for span in spans_to_remove:
+        text = text[:span.start_char] + text[span.end_char:]
 
-    return ''.join(tokens)
+    return text
+
+
+
 
 def truncate_before_ent_keep_ent(doc, label):
     """
@@ -336,6 +337,7 @@ def process_txt_files(input_dir, output_dir, truncate_label=None, remove_label=N
             # Remove entities
             if remove_label:
                 text = remove_ent(doc, remove_label)
+                doc = nlp(text)
             
             # Replace this in your process_txt_files function
             if truncate_label_before:
@@ -347,13 +349,23 @@ def process_txt_files(input_dir, output_dir, truncate_label=None, remove_label=N
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-# Example usage
+# === Configuration ===
 input_directory = "raw_TXT"
 output_directory = "raw_TXT_deleted"
-label_to_truncate = "HEADER_DATE_CORRESPONDENCIA"
 
-process_txt_files("raw_TXT", "raw_TXT_deleted", truncate_label="HEADER_DATE_CORRESPONDENCIA", remove_label="HEADER_DATE", truncate_label_before="SEC_DES_SUM")
+# Labels to use for text processing
+label_to_truncate_after = "HEADER_DATE_CORRESPONDENCIA"   # Truncate text after this entity
+label_to_remove = "HEADER_DATE"                           # Remove this entity from text
+label_to_truncate_before = "SEC_DES_SUM"                  # Truncate everything before this entity (but keep it)
 
+# === Run Processing ===
+process_txt_files(
+    input_dir=input_directory,
+    output_dir=output_directory,
+    truncate_label=label_to_truncate_after,
+    remove_label=label_to_remove,
+    truncate_label_before=label_to_truncate_before
+)
 
 
 
