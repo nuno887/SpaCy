@@ -256,26 +256,7 @@ for filename in os.listdir(INPUT_DIR):
 
     print(f"✅ HTML saved to: {output_path}")
 #------------------------------------------------------------------------------------------
-"""
-#------------------------------------------------------------------------------------------
-extracted = extract_text_between_labels(doc, "SUM", "HEADER_DATE")
-if extracted:
-    print(f"\n--- Extracted Text from {filename} ---\n{extracted}\n")
-else:
-    print(f"⚠️ Couldn't find both SUM and HEADER_DATE in: {filename}")
-#--------------------------------------------------------------------------------------------
-# Reprocess the extracted text
-extracted_doc = nlp(extracted)
 
-des_sections = extract_all_sections_from_label_to_same(extracted_doc, "DES")
-
-if des_sections:
-    for i, section in enumerate(des_sections, 1):
-        print(f"\n--- DES Section {i} ---\n{section}\n")
-else:
-    print("⚠️ No DES sections found.")
-#-------------------------------------------------------------------------------------------
-"""
 extracted = extract_text_between_labels(doc, "SUM", "HEADER_DATE")
 extracted_doc = nlp(extracted)
 
@@ -284,3 +265,4 @@ secretaria_dict = group_sections_by_secretaria_with_metadata(extracted_doc)
 save_secretaria_dict_to_json(secretaria_dict, filename, output_dir="json_exports")
 
 
+print
