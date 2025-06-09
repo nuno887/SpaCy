@@ -181,7 +181,7 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
                     sec["title"]: {
                         "chunk": sec["text"],
                         "data": "",
-                        "autor": extract_metadata_from_chunk(sec["text"], autor_mode=True)["autor"],
+                        "autor": [],
                         "pessoas": [],
                         "despachos": "",
                         "serie": "",
@@ -206,7 +206,7 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
             sec["title"]: {
                 "chunk": sec["text"],
                 "data": "",
-                "autor": extract_metadata_from_chunk(sec["text"], autor_mode=True)["autor"],
+                "autor": [],
                 "pessoas": [],
                 "despachos": "",
                 "serie": "",
@@ -260,11 +260,6 @@ for filename in os.listdir(INPUT_DIR):
     extracted_doc = nlp(extracted)
     secretaria_dict = group_sections_by_secretaria_with_metadata(extracted_doc)
 
-    # Add "pessoas" from chunks (second-level metadata)
-    for secretaria in secretaria_dict.values():
-        for section in secretaria.values():
-            pessoas = extract_metadata_from_chunk(section["chunk"], autor_mode=False)["pessoas"]
-            section["pessoas"] = list(set(pessoas))  # optional deduplication
 
     save_secretaria_dict_to_json(secretaria_dict, filename, output_dir=OUTPUT_DIR)
 
