@@ -2,6 +2,7 @@ import os
 import spacy
 from spacy.pipeline import EntityRuler
 import json
+from spacy import displacy
 
 from clean_people_chunk import extract_people_from_chunk
 
@@ -10,10 +11,17 @@ INPUT_DIR = "raw_TXT"
 OUTPUT_DIR = "json_exports"
 
 # === Custom Entity Patterns ===
-ENTITY_PATTERNS = [
+PRIMARY_PATTERNS = [
     {"label": "SUM", "pattern": [{"TEXT": "Sumário"}, {"TEXT": ":", "OP": "!"}]},
-    {"label": "TEXTO", "pattern": "Texto"},
-    {"label": "DES", "pattern": [{"LOWER": "despacho"}, {"TEXT": "n.º", "OP": "?"}, {"LIKE_NUM": True}]},
+    {"label": "SUM:", "pattern": [{"TEXT": "Sumário"}]},
+    {
+        "label": "DES",
+        "pattern": [
+            {"LOWER": {"IN": ["despacho", "aviso"]}},
+            {"TEXT": "n.º", "OP": "?"},
+            {"LIKE_NUM": True}
+        ]
+    },
     {
         "label": "HEADER_DATE",
         "pattern": [
@@ -28,17 +36,86 @@ ENTITY_PATTERNS = [
                 "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
             ]}},
             {"LOWER": "de"},
+            {"LIKE_NUM": True},
+            {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
+            {"LOWER": "número"},
             {"LIKE_NUM": True}
         ]
     },
     {
+        "label": "HEADER_DATE",
+        "pattern": [
+            {"LIKE_NUM": True},
+            {"LOWER": "de"},
+            {"LOWER": {"IN": [
+                "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+                "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+            ]}},
+            {"LOWER": "de"},
+            {"LIKE_NUM": True},
+            {"IS_ALPHA": True, "LENGTH": 1},
+            {"IS_PUNCT": True, "TEXT": "-"},
+            {"LIKE_NUM": True},
+            {"TEXT": {"REGEX": "^[\\n\\r]+$"}, "OP": "*"},  # newline token(s)
+            {"LOWER": "número"},
+            {"LIKE_NUM": True}
+
+        ]
+    },
+    {
+  "label": "CORRESPONDENCIA_BLOCO",
+  "pattern": [
+    {"LOWER": "correspondência"},
+    {"IS_SPACE": True, "OP": "*"},
+    {"IS_ALPHA": True, "OP": "*"},
+    {"IS_PUNCT": True, "OP": "*"},
+    {"IS_ASCII": True, "OP": "*"},
+    {"LOWER": "publicações"}
+  ]
+}
+,
+{
+  "label": "PUBLICACOES_BLOCO",
+  "pattern": [
+    {"LOWER": "publicações"},
+    {"IS_SPACE": True, "OP": "*"},
+    {"IS_ALPHA": True, "OP": "*"},
+    {"IS_PUNCT": True, "OP": "*"},
+    {"IS_ASCII": True, "OP": "*"}
+  ]
+},
+    {
         "label": "SECRETARIA",
         "pattern": [
-            {"TEXT": {"REGEX": "^SECRETARIA(S)?$"}},
             {"IS_UPPER": True, "OP": "+"}
         ]
-    }
+    },
+    
+
 ]
+
+COMPOSED_PATTERNS = [
+    {
+    "label": "SEC_DES_SUM",
+    "pattern": [
+        {"IS_UPPER": True, "OP": "+"},
+        {"IS_SPACE": True, "OP": "*"},
+        {"IS_UPPER": True, "OP": "+"},
+        {"IS_SPACE": True, "OP": "*"},
+        {"LOWER": {"IN": ["despacho", "aviso"]}},
+        {"IS_SPACE": True, "OP": "*"},
+        {"TEXT": "n.º", "OP": "?"},
+        {"IS_SPACE": True, "OP": "*"},
+        {"LIKE_NUM": True},
+        {"IS_SPACE": True, "OP": "*"},
+        {"TEXT": "Sumário"},
+        {"TEXT": ":", "OP": "?"}
+    ]
+},
+
+
+]
+
 
 # === Helper Functions ===
 
@@ -122,8 +199,15 @@ def save_secretaria_dict_to_json(secretaria_dict, txt_filename, output_dir):
 
 # === Setup NLP ===
 nlp = spacy.load("pt_core_news_lg")
-ruler = nlp.add_pipe("entity_ruler", before="ner")
-ruler.add_patterns(ENTITY_PATTERNS)
+
+# Add composed/override patterns first
+ruler_composed = nlp.add_pipe("entity_ruler", name="ruler_composed", before="ner")
+ruler_composed.add_patterns(COMPOSED_PATTERNS)
+
+# Add general/primary patterns second
+ruler_primary = nlp.add_pipe("entity_ruler", name="ruler_primary", after="ruler_composed")
+ruler_primary.add_patterns(PRIMARY_PATTERNS)
+
 
 # === Process All TXT Files ===
 for filename in os.listdir(INPUT_DIR):
@@ -136,13 +220,13 @@ for filename in os.listdir(INPUT_DIR):
 
     doc = nlp(text)
 
-    if not any(ent.label_ in {"SUM", "TEXTO", "DES", "HEADER_DATE", "SECRETARIA"} for ent in doc.ents):
+    if not any(ent.label_ in {"SUM", "TEXTO", "DES", "HEADER_DATE", "SECRETARIA", "SEC_DES_SUM"} for ent in doc.ents):
         print(f"❌ No custom entities in: {filename}")
         continue
 
-    extracted = extract_text_between_labels(doc, "SUM", "HEADER_DATE")
+    extracted = extract_text_between_labels(doc, "SUM", "SEC_DES_SUM")
     if not extracted:
-        print(f"⚠️ Could not extract between SUM and HEADER_DATE in: {filename}")
+        print(f"⚠️ Could not extract between SUM and SEC_DES_SUM in: {filename}")
         continue
 
     extracted_doc = nlp(extracted)
@@ -155,3 +239,64 @@ for filename in os.listdir(INPUT_DIR):
             section["pessoas"] = list(set(pessoas))  # optional deduplication
 
     save_secretaria_dict_to_json(secretaria_dict, filename, output_dir=OUTPUT_DIR)
+
+#----------------------------------------------------------------------------------------
+
+# Your label colors
+ENTITY_COLORS = {
+    "SUM": "#f9e79f",             # Light yellow
+    "SUM:": "#a9dfbf",           # Light green
+    "DES": "#f5b7b1",             # Light pink/red
+    "HEADER_DATE": "#aed6f1",     # Light blue
+    "HEADER_DATE_ALT": "#d2b4de", # Light purple
+    "SECRETARIA": "#f7cacc",       # Light coral
+    "SEC_DES_SUM": "#e6f2ff",
+    "PRECO_NUMERO": "#dbeafe",       # Soft sky blue
+    "CORRESPONDENCIA_BLOCO": "#d6eaf8",  # Soft blue
+    "PRECO_NUMERO": "#fdebd0"            # Soft peach
+
+
+
+}
+
+# === Function ===
+def generate_ner_html(txt_path: str, html_output_path: str, model_name: str = "pt_core_news_lg"):
+    """
+    Generates an HTML visualization showing ONLY custom entities.
+    """
+    if not os.path.exists(txt_path):
+        raise FileNotFoundError(f"File not found: {txt_path}")
+
+    # Load spaCy model and add your entity ruler
+    nlp = spacy.load(model_name)
+    # Add composed/override patterns first
+    ruler_composed = nlp.add_pipe("entity_ruler", name="ruler_composed", before="ner")
+    ruler_composed.add_patterns(COMPOSED_PATTERNS)
+
+    # Add general/primary patterns second
+    ruler_primary = nlp.add_pipe("entity_ruler", name="ruler_primary", after="ruler_composed")
+    ruler_primary.add_patterns(PRIMARY_PATTERNS)
+
+
+    # Load and process the text
+    with open(txt_path, "r", encoding="utf-8") as f:
+        text = f.read()
+    doc = nlp(text)
+
+    # Keep only custom entities
+    custom_labels = set(ENTITY_COLORS.keys())
+    filtered_ents = [ent for ent in doc.ents if ent.label_ in custom_labels]
+    doc.ents = filtered_ents  # override with only our custom ents
+
+    # Render
+    html = displacy.render(doc, style="ent", page=True, options={"colors": ENTITY_COLORS})
+
+    # Save output
+    with open(html_output_path, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    print(f"✅ HTML with custom entities saved to: {html_output_path}")
+
+#----------------------------------------------------------------------------------
+
+generate_ner_html("raw_TXT/IISerie-100-2025-06-04Supl.txt", "output/IISerie-100-2025-06-04Supl_NER.html")
