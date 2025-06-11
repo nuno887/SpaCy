@@ -183,9 +183,11 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
                         "data": "",
                         "autor": [],
                         "pessoas": [],
-                        "despachos": "",
+                        "despacho":sec["title"],
+                        "despachos": [],
                         "serie": "",
-                        "secretaria":"",
+                        "secretaria":current_secretaria,
+                        "PDF":"",
                     }
                     for sec in current_sections
                 }
@@ -208,9 +210,11 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
                 "data": "",
                 "autor": [],
                 "pessoas": [],
-                "despachos": "",
+                "despacho":sec["title"],
+                "despachos": [],
                 "serie": "",
-                "secretaria":"",
+                "secretaria":current_secretaria,
+                "PDF":"",
             }
             for sec in current_sections
         }
@@ -263,7 +267,7 @@ for filename in os.listdir(INPUT_DIR):
 
     save_secretaria_dict_to_json(secretaria_dict, filename, output_dir=OUTPUT_DIR)
 
-#-----------------------------------------------------------------------------
+#----------------------------------------------------------------------------- por noutro script ??? -----------------------------------------------------------------
 
 def truncate_after_ent(doc, label):
     """
