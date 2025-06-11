@@ -90,6 +90,12 @@ def extract_valid_des_sections_between_valids(input_txt_dir: str, input_json_dir
             ent for ent in doc.ents
             if ent.label_ == "DES" and ent.text.strip() in valid_des_titles
         ]
+        valid_secretaria_titles = {
+            sec_title
+            for sec_title in json_data.keys()
+            }
+
+        #print(valid_secretaria_titles)
 
         sections = {}
         for i in range(len(des_ents) - 1):
@@ -101,11 +107,19 @@ def extract_valid_des_sections_between_valids(input_txt_dir: str, input_json_dir
             end = next_ent.start
             content = doc[start:end].text.strip()
 
+            #print(f"Last line:" + content.splitlines()[-1])
+            if content.splitlines(True)[-1] in valid_secretaria_titles:
+                content_list = content.splitlines(True)[:-1]
+                delimiter = "" #Define a delimiter
+                content = delimiter.join(content_list)
+            
+
             sections[title] = {
                 "text": content,
                 "order": i + 1,
                 "file_date": datetime.fromtimestamp(os.path.getmtime(txt_path)).isoformat(),
-                "original_filename": filename
+                "original_filename": filename.replace(".txt", ""),
+                "people": extract_people_from_chunk(content)
             }
 
      
@@ -117,7 +131,8 @@ def extract_valid_des_sections_between_valids(input_txt_dir: str, input_json_dir
                 "text": content,
                 "order": len(des_ents),
                 "file_date": datetime.fromtimestamp(os.path.getmtime(txt_path)).isoformat(),
-                "original_filename": filename
+                "original_filename": filename.replace(".txt", ""),
+                "people": extract_people_from_chunk(content)
            }
 
         if sections:
@@ -144,7 +159,6 @@ def extract_valid_des_sections_between_valids(input_txt_dir: str, input_json_dir
 
         with open(html_output_path, "w", encoding="utf-8") as html_file:
             html_file.write(html_content)
-
 
 
 extract_valid_des_sections_between_valids(INPUT_DIR_TXT, INPUT_DIR_JSON, OUTPUT_DIR_JSON)

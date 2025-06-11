@@ -1,5 +1,6 @@
 import spacy
 import re
+
 # Load the spaCy model
 nlp = spacy.load("pt_core_news_lg")
 
@@ -25,7 +26,52 @@ NAME_TITLES = [
     "Mestrando", "Mestranda",
     "Doutorando", "Doutoranda",
     "Pós-Doutor", "Pós-Doutora",
+    
+    # Ensino
+    "Professor", "Professora",
+    "Educador", "Educadora",
+
+    # Engenharia e Técnicos
+    "Engenheiro", "Engenheira",
+    "Arquiteto", "Arquiteta",
+    "Técnico", "Técnica",
+
+    # Jurídico e Político
+    "Juiz", "Juíza",
+    "Desembargador", "Desembargadora",
+    "Advogado", "Advogada",
+    "Promotor", "Promotora",
+    "Procurador", "Procuradora",
+    "Deputado", "Deputada",
+    "Senador", "Senadora",
+    "Vereador", "Vereadora",
+
+    # Saúde
+    "Médico", "Médica",
+    "Enfermeiro", "Enfermeira",
+    "Psicólogo", "Psicóloga",
+    "Farmacêutico", "Farmacêutica",
+    "Nutricionista", "Fisioterapeuta",
+
+    # Outras profissões comuns
+    "Gestor", "Gestora",
+    "Administrador", "Administradora",
+    "Diretor", "Diretora",
+    "Coordenador", "Coordenadora",
+    "Chefe", "Chefa",
+    "Inspetor", "Inspetora",
+    "Secretário", "Secretária",
+
+    # Militares
+    "General", "Coronel", "Major", "Capitão", "Tenente", "Sargento", "Cabo", "Soldado",
+
+    # Religiosos
+    "Padre", "Pastor", "Irmão", "Irmã", "Freira", "Bispo", "Monge",
+
+    # Tratamentos de cortesia
+    "Senhor", "Senhora", "Sr.", "Sra.", "Srª", "D.", "Dom", "Dona"
 ]
+
 
 def fallback_regex_name_extraction(text: str, known_entities: list[str]) -> list[str]:
     pattern = r"\b(" + "|".join(NAME_TITLES) + r")\s+([A-ZÁÉÍÓÚÂÊÔÃÕÀÇ][\w\-']+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÀÇ][\w\-']+)+)"
@@ -86,28 +132,28 @@ def remove_titles_from_entities(entities, titles):
             cleaned.append(ent)
     return cleaned
 
+
 # ✅ MAIN FUNCTION: extract from chunk
 def extract_people_from_chunk(text: str) -> list[str]:
     doc = nlp(text)
     person_entities = [ent.text.strip() for ent in doc.ents if ent.label_ == "PER"]
+    print("PER:" , person_entities)
+
+     # Se spaCy falhar, tenta regex
+    if not person_entities:
+        person_entities = fallback_regex_name_extraction(text, [])
+
+
 
     person_entities = remove_single_word_entities(person_entities)
     person_entities = [trim_after_keywords(p, TRIM_KEYWORDS) for p in person_entities]
     person_entities = keep_shortest_prefix_entities(person_entities)
     person_entities = normalize_and_deduplicate(person_entities)
     person_entities = remove_entities_with_unwanted_words(person_entities, UNWANTED_WORDS)
-
-         # Se spaCy falhar, tenta regex
-    if not person_entities:
-        person_entities = fallback_regex_name_extraction(text, [])
-    
     person_entities = remove_titles_from_entities(person_entities, NAME_TITLES)
 
-        
     return person_entities
 
-
-"""
 text01 = "Despacho n.º 464/2025\nNomeia a licenciada em Direito, Anabela de Sousa Reis Varela, Técnica Superior do\nSistema Centralizado de Gestão de Recursos Humanos da Secretaria Regional de\nEducação, Ciência e Tecnologia, afeta à Direção Regional de Planeamento,\nRecursos e Infraestruturas, no cargo de Técnica Especialista do Gabinete do\nSecretário Regional da Economia."
 text02 = "Aviso n.º 139/2025\nAutoriza a renovação da comissão de serviço da Licenciada Ana Cristina Fernandes\nEscórcio, como Chefe de Divisão do Gabinete de Conferência e Conformidade,\ncargo de direção intermédia de 2.º grau, do Instituto de Administração da Saúde."
 
@@ -115,5 +161,3 @@ print("text01")
 print(extract_people_from_chunk(text01))
 print("text02")
 print(extract_people_from_chunk(text02))
-
-"""

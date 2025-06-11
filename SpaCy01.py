@@ -181,7 +181,7 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
                     sec["title"]: {
                         "chunk": sec["text"],
                         "data": "",
-                        "autor": [],
+                        "autor": extract_people_from_chunk(sec["text"]),
                         "pessoas": [],
                         "despacho":sec["title"],
                         "despachos": [],
@@ -208,7 +208,7 @@ def group_sections_by_secretaria_with_metadata(extracted_doc) -> dict:
             sec["title"]: {
                 "chunk": sec["text"],
                 "data": "",
-                "autor": [],
+                "autor": extract_people_from_chunk(sec["text"]),
                 "pessoas": [],
                 "despacho":sec["title"],
                 "despachos": [],
